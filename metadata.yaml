@@ -1,0 +1,15 @@
+name: astrbot_plugin_playlist_daily
+display_name: 每日推歌
+short_desc: 导入 Apple Music 歌单，每天推荐一首
+desc: "导入歌单（Apple Music 链接或文本），每天定时推送一首歌并附一句推荐语，自动避免近期重复。"
+version: 1.0.0
+author: dd289
+repo: ""
+entry: main.py
+support_platforms:
+  - aiocqhttp
+astrbot_version: ">=4.16,<5"
+tags:
+  - 音乐
+  - 推歌
+  - AppleMusic
