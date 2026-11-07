@@ -1,4 +1,4 @@
-# 每日推歌（astrbot_plugin_playlist_daily）
+# QQ小鲸鱼每日推歌（astrbot_plugin_playlist_daily）
 
 导入歌单，每天定时推一首，附一句推荐语，30 天内不重复。
 
