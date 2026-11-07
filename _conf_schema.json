@@ -1,0 +1,32 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "启用每日推歌"
+  },
+  "push_time": {
+    "type": "string",
+    "default": "09:00",
+    "description": "每天推送时间，24 小时制 HH:MM"
+  },
+  "push_target": {
+    "type": "string",
+    "default": "",
+    "description": "推送目标 UMO，例如 鱼鱼:FriendMessage:2890150433"
+  },
+  "history_days": {
+    "type": "int",
+    "default": 30,
+    "description": "多少天内不重复推同一首"
+  },
+  "with_blurb": {
+    "type": "bool",
+    "default": true,
+    "description": "是否让模型写一句推荐语"
+  },
+  "provider_id": {
+    "type": "string",
+    "default": "",
+    "description": "推荐语用的模型 provider，留空用默认"
+  }
+}
