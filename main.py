@@ -47,9 +47,85 @@ class PlaylistDaily(Star):
         self._task: asyncio.Task | None = None
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         try:
+            self._register_page_web_apis()
+        except Exception as e:
+            logger.warning(f"[推歌] 页面接口注册失败: {e}")
+        try:
             self._task = asyncio.create_task(self._daily_loop())
         except Exception as e:
             logger.warning(f"[推歌] 定时任务启动失败: {e}")
+
+
+    # ---------------- WebUI 页面 API ----------------
+
+    def _register_page_web_apis(self) -> None:
+        context = getattr(self, "context", None)
+        register = getattr(context, "register_web_api", None)
+        if not callable(register):
+            return
+        routes = (
+            ("page/status", self.page_status, ["GET"], "推歌状态"),
+            ("page/import", self.page_import, ["POST"], "导入歌单"),
+            ("page/push", self.page_push, ["POST"], "立即推送"),
+        )
+        for name, callback, methods, desc in routes:
+            try:
+                register(name, callback, methods, desc)
+            except Exception as e:
+                logger.warning(f"[推歌] 注册页面接口失败 {name}: {e}")
+
+    async def _page_body(self) -> dict:
+        try:
+            from quart import request as _rq
+            body = await _rq.get_json(silent=True)
+            return body if isinstance(body, dict) else {}
+        except Exception:
+            return {}
+
+    async def page_status(self):
+        try:
+            data = self._load()
+            sent = data.get("sent", [])
+            return {
+                "ok": True,
+                "data": {
+                    "tracks": len(data.get("tracks", [])),
+                    "source": data.get("source", ""),
+                    "imported_at": data.get("imported_at", ""),
+                    "push_time": str(self.config.get("push_time", "09:00")),
+                    "sent_count": len(sent),
+                    "recent": sent[-7:],
+                },
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    async def page_import(self):
+        try:
+            body = await self._page_body()
+            url = str(body.get("url") or "").strip()
+            if not url:
+                return {"ok": False, "error": "缺少 url"}
+            tracks = await self._fetch_apple_music(url)
+            if not tracks:
+                return {"ok": False, "error": "未解析到曲目"}
+            data = self._load()
+            have = {(t.get("title", ""), t.get("artist", "")) for t in data["tracks"]}
+            added = [t for t in tracks if (t["title"], t.get("artist", "")) not in have]
+            data["tracks"].extend(added)
+            data["source"] = url
+            data["imported_at"] = datetime.now().isoformat(timespec="seconds")
+            self._save(data)
+            return {"ok": True, "data": {"parsed": len(tracks), "added": len(added), "total": len(data["tracks"])}}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    async def page_push(self):
+        try:
+            text = await self._push_one()
+            return {"ok": True, "data": {"text": text}}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
     # ---------------- 存储 ----------------
 
