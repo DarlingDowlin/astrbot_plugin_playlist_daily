@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>每日推歌</title>
+<style>
+  :root { color-scheme: dark light; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; margin: 0; padding: 24px; background: #0f1116; color: #e8e9ee; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #9aa0ad; font-size: 13px; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: #171a21; border: 1px solid #242835; border-radius: 10px; padding: 14px; }
+  .card b { display: block; font-size: 22px; margin-top: 6px; }
+  .card span { color: #9aa0ad; font-size: 12px; }
+  .row { display: flex; gap: 8px; margin-bottom: 12px; }
+  input { flex: 1; background: #12151b; border: 1px solid #2a2f3c; color: #e8e9ee; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+  button { background: #3b6cf6; border: 0; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  button.ghost { background: #262b38; }
+  button:disabled { opacity: .5; cursor: default; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: 8px 0; border-bottom: 1px solid #20242f; font-size: 14px; }
+  li:last-child { border-bottom: 0; }
+  .muted { color: #7b8190; }
+  #msg { margin: 12px 0; font-size: 13px; min-height: 18px; }
+</style>
+</head>
+<body>
+<h1>每日推歌</h1>
+<div class="sub">按歌单口味推荐歌单外的新歌，每天定时推送</div>
+
+<div class="grid">
+  <div class="card"><span>歌单曲目</span><b id="tracks">-</b></div>
+  <div class="card"><span>推送时间</span><b id="pushTime">-</b></div>
+  <div class="card"><span>已推送</span><b id="sentCount">-</b></div>
+</div>
+
+<div class="row">
+  <input id="url" placeholder="Apple Music 歌单链接（分享链接）" />
+  <button id="btnImport">导入</button>
+</div>
+<div class="row">
+  <button id="btnPush" class="ghost">立即推一首</button>
+</div>
+<div id="msg" class="muted"></div>
+
+<h3 style="font-size:15px;margin:16px 0 8px">最近推送</h3>
+<ul id="recent"><li class="muted">暂无记录</li></ul>
+
+<script>
+const BASE = '/api/plugins/extensions/astrbot_plugin_playlist_daily/page';
+function authHeaders() {
+  const keys = ['token', 'astrbot_token', 'Authorization'];
+  for (const k of keys) {
+    const v = localStorage.getItem(k);
+    if (v) return { 'Authorization': v.startsWith('Bearer') ? v : 'Bearer ' + v };
+  }
+  return {};
+}
+async function call(path, method = 'GET', body) {
+  const res = await fetch(BASE + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return await res.json();
+}
+function setMsg(t, ok = true) {
+  const el = document.getElementById('msg');
+  el.textContent = t;
+  el.style.color = ok ? '#7ee0a1' : '#ff8b8b';
+}
+async function refresh() {
+  try {
+    const r = await call('/status');
+    if (!r.ok) { setMsg(r.error || '读取失败', false); return; }
+    const d = r.data || {};
+    document.getElementById('tracks').textContent = d.tracks ?? '-';
+    document.getElementById('pushTime').textContent = d.push_time ?? '-';
+    document.getElementById('sentCount').textContent = d.sent_count ?? '-';
+    const ul = document.getElementById('recent');
+    ul.innerHTML = '';
+    const items = d.recent || [];
+    if (!items.length) { ul.innerHTML = '<li class="muted">暂无记录</li>'; }
+    items.slice().reverse().forEach(it => {
+      const li = document.createElement('li');
+      li.textContent = `${(it.at || '').slice(5, 16)}  ${it.title}${it.artist ? ' - ' + it.artist : ''}`;
+      ul.appendChild(li);
+    });
+  } catch (e) { setMsg('请求异常: ' + e.message, false); }
+}
+document.getElementById('btnImport').onclick = async () => {
+  const url = document.getElementById('url').value.trim();
+  if (!url) { setMsg('请先填歌单链接', false); return; }
+  setMsg('导入中…');
+  const r = await call('/import', 'POST', { url });
+  if (r.ok) { setMsg(`导入完成：解析 ${r.data.parsed} 首，新增 ${r.data.added} 首`); refresh(); }
+  else { setMsg(r.error || '导入失败', false); }
+};
+document.getElementById('btnPush').onclick = async () => {
+  setMsg('推送中…');
+  const r = await call('/push', 'POST', {});
+  if (r.ok) { setMsg('已推送'); refresh(); }
+  else { setMsg(r.error || '推送失败', false); }
+};
+refresh();
+</script>
+</body>
+</html>
