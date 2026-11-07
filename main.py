@@ -59,8 +59,9 @@ class PlaylistDaily(Star):
     # ---------------- WebUI 页面 API ----------------
 
     def _register_page_web_apis(self) -> None:
-        context = getattr(self, "context", None)
+        context = getattr(self, "_context", None) or getattr(self, "context", None)
         register = getattr(context, "register_web_api", None)
+        logger.info(f"[推歌] 页面注册检查: ctx={type(context).__name__} callable={callable(register)}")
         if not callable(register):
             return
         routes = (
@@ -68,11 +69,14 @@ class PlaylistDaily(Star):
             ("page/import", self.page_import, ["POST"], "导入歌单"),
             ("page/push", self.page_push, ["POST"], "立即推送"),
         )
-        for name, callback, methods, desc in routes:
+        for endpoint, callback, methods, desc in routes:
+            path = f"/{PLUGIN_NAME}/{endpoint}"
             try:
-                register(name, callback, methods, desc)
+                register(path, callback, methods, desc)
+            except TypeError:
+                register(path, callback, methods)
             except Exception as e:
-                logger.warning(f"[推歌] 注册页面接口失败 {name}: {e}")
+                logger.warning(f"[推歌] 注册页面接口失败 {path}: {e}")
 
     async def _page_body(self) -> dict:
         try:
